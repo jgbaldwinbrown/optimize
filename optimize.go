@@ -109,6 +109,33 @@ func (o *Optimizer) Guess() error {
 	return nil
 }
 
+func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
+	h := func(e error) (bool, error) {
+		return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
+	}
+
+	o.bestGuess = append(o.bestGuess[:0], o.best...)
+	o.bestGuessScore = o.bestScore
+
+	for rep := 0; rep < o.Replicates; rep++ {
+		if e := o.Guess(); e != nil {
+			return h(e)
+		}
+	}
+
+	oldBestScore := o.bestScore
+	if o.bestGuessScore > o.bestScore {
+		o.bestScore = o.bestGuessScore
+		copy(o.best, o.bestGuess)
+	}
+	if o.bestScore - oldBestScore <= o.Target {
+		fmt.Println("o.bestScore:", o.bestScore, "o.BestGuessScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (o *Optimizer) Optimize() ([]float64, int, error) {
 	h := func(e error) ([]float64, int, error) {
 		return o.Handle(e)
@@ -121,22 +148,11 @@ func (o *Optimizer) Optimize() ([]float64, int, error) {
 	}
 
 	for o.iterations = 0; o.iterations < o.Maxiter; o.iterations++ {
-		o.bestGuess = append(o.bestGuess[:0], o.best...)
-		o.bestGuessScore = o.bestScore
-
-		for rep := 0; rep < o.Replicates; rep++ {
-			if e := o.Guess(); e != nil {
-				return h(e)
-			}
+		continueLoop, e := o.GuessRound()
+		if e != nil {
+			return h(e)
 		}
-
-		oldBestScore := o.bestScore
-		if o.bestGuessScore > o.bestScore {
-			o.bestScore = o.bestGuessScore
-			copy(o.best, o.bestGuess)
-		}
-		if o.bestScore - oldBestScore <= o.Target {
-			fmt.Println("o.bestScore:", o.bestScore, "o.BestGuessScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
+		if !continueLoop {
 			break
 		}
 	}
