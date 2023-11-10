@@ -92,13 +92,9 @@ func (o *Optimizer) Handle(e error) ([]float64, int, error) {
 }
 
 func (o *Optimizer) Guess() error {
-	h := func(e error) error {
-		return fmt.Errorf("Optimizer.Guess: %w", e)
-	}
-
 	o.guess = makeGuess(o.guess, o.best, o.Step, o.Rand, o.Limits)
 	if o.guessScore, o.err = o.Func(o.guess...); o.err != nil {
-		return h(o.err)
+		return fmt.Errorf("Optimizer.Guess: %w", o.err)
 	}
 
 	if o.guessScore > o.bestGuessScore {
@@ -110,16 +106,12 @@ func (o *Optimizer) Guess() error {
 }
 
 func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
-	h := func(e error) (bool, error) {
-		return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
-	}
-
 	o.bestGuess = append(o.bestGuess[:0], o.best...)
 	o.bestGuessScore = o.bestScore
 
 	for rep := 0; rep < o.Replicates; rep++ {
 		if e := o.Guess(); e != nil {
-			return h(e)
+			return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
 		}
 	}
 
