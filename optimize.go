@@ -105,6 +105,20 @@ func (o *Optimizer) Guess() error {
 	return nil
 }
 
+func (o *Optimizer) UpdateBest() (continueLoop bool) {
+	oldBestScore := o.bestScore
+	if o.bestGuessScore > o.bestScore {
+		o.bestScore = o.bestGuessScore
+		copy(o.best, o.bestGuess)
+	}
+	if o.bestScore - oldBestScore <= o.Target {
+		fmt.Println("o.bestScore:", o.bestScore, "o.BestGuessScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
+		return false
+	}
+
+	return true
+}
+
 func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 	o.bestGuess = append(o.bestGuess[:0], o.best...)
 	o.bestGuessScore = o.bestScore
@@ -115,17 +129,8 @@ func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 		}
 	}
 
-	oldBestScore := o.bestScore
-	if o.bestGuessScore > o.bestScore {
-		o.bestScore = o.bestGuessScore
-		copy(o.best, o.bestGuess)
-	}
-	if o.bestScore - oldBestScore <= o.Target {
-		fmt.Println("o.bestScore:", o.bestScore, "o.BestGuessScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
-		return false, nil
-	}
-
-	return true, nil
+	continueLoop = o.UpdateBest()
+	return continueLoop, nil
 }
 
 func (o *Optimizer) Optimize() ([]float64, int, error) {
