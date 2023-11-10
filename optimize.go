@@ -9,7 +9,7 @@ import (
 
 type Func func(args ...float64) (float64, error)
 
-type Optimizer struct {
+type OptimizerArgs struct {
 	Rand *rand.Rand
 	Func Func
 	Nargs int
@@ -19,21 +19,33 @@ type Optimizer struct {
 	Step float64
 	Maxiter int
 	Replicates int
+}
+
+type Optimizer struct {
+	OptimizerArgs
 	best []float64
 	bestScore float64
 	guess []float64
 	guessScore float64
+	bestGuess []float64
+	bestGuessScore float64
 	iterations int
 	err error
 }
 
-func DefaultOptimizer(f Func, nargs int) *Optimizer {
+func NewOptimizer(a OptimizerArgs) *Optimizer {
 	o := new(Optimizer)
+	o.OptimizerArgs = a
+	return o
+}
+
+func DefaultOptimizerArgs(f Func, nargs int) OptimizerArgs {
+	o := OptimizerArgs{}
 	o.Func = f
 	o.Nargs = nargs
 	o.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	o.Target = 0.0
-	o.Step = 0.0001
+	o.Step = 1.0
 	o.Maxiter = 10000
 	o.Replicates = 1000000
 	o.Limits = NewLimits(o.Nargs)
@@ -91,7 +103,8 @@ func (o *Optimizer) Optimize() ([]float64, int, error) {
 	}
 
 	for o.iterations = 0; o.iterations < o.Maxiter; o.iterations++ {
-		oldBestScore := o.bestScore
+		o.bestGuess = append(o.bestGuess[:0], o.best...)
+		o.bestGuessScore = o.bestScore
 
 		for rep := 0; rep < o.Replicates; rep++ {
 			o.guess = makeGuess(o.guess, o.best, o.Step, o.Rand, o.Limits)
@@ -99,14 +112,19 @@ func (o *Optimizer) Optimize() ([]float64, int, error) {
 				return h(o.err)
 			}
 
-			if o.guessScore > o.bestScore {
-				o.bestScore = o.guessScore
-				copy(o.best, o.guess)
+			if o.guessScore > o.bestGuessScore {
+				o.bestGuessScore = o.guessScore
+				copy(o.bestGuess, o.guess)
 			}
 		}
 
+		oldBestScore := o.bestScore
+		if o.bestGuessScore > o.bestScore {
+			o.bestScore = o.bestGuessScore
+			copy(o.best, o.bestGuess)
+		}
 		if o.bestScore - oldBestScore <= o.Target {
-			fmt.Println("o.bestScore:", o.bestScore, "oldBestScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
+			fmt.Println("o.bestScore:", o.bestScore, "o.BestGuessScore:", oldBestScore, "diff:", o.bestScore - oldBestScore)
 			break
 		}
 	}
