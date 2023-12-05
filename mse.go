@@ -12,6 +12,7 @@ type MSESummer struct {
 
 func (m *MSESummer) Update(y1, y2 float64) {
 	m.Sum += (y1 - y2) * (y1 - y2)
+	m.Count++
 }
 
 func (m *MSESummer) MeanSquaredError() float64 {
