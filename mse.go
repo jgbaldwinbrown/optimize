@@ -40,14 +40,14 @@ func (m *MSESummer) IterMSE(it iter.Iter[Pair]) (float64, error) {
 	return m.MeanSquaredError(), e
 }
 
-type IOPair struct {
-	In float64
+type IOPair[T any] struct {
+	In T
 	Out float64
 }
 
-func FuncPair(f func(float64) float64, pairs iter.Iter[IOPair]) *iter.Iterator[Pair] {
+func FuncPair[T any](f func(T) float64, pairs iter.Iter[IOPair[T]]) *iter.Iterator[Pair] {
 	return &iter.Iterator[Pair]{Iteratef: func(yield func(Pair) error) error {
-		return pairs.Iterate(func(ip IOPair) error {
+		return pairs.Iterate(func(ip IOPair[T]) error {
 			return yield(Pair{f(ip.In), ip.Out})
 		})
 	}}
