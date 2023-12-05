@@ -1,6 +1,7 @@
 package optimize
 
 import (
+	"fmt"
 	"github.com/jgbaldwinbrown/iter"
 )
 
@@ -38,6 +39,23 @@ func (m *MSESummer) IterMSE(it iter.Iter[Pair]) (float64, error) {
 		return nil
 	})
 	return m.MeanSquaredError(), e
+}
+
+func Zip(s1 []float64, s2 []float64) (*iter.Iterator[Pair], error) {
+	if len(s1) != len(s2) {
+		return nil, fmt.Errorf("len(s1) %v != len(s2) %v", len(s1), len(s2))
+	}
+
+	return &iter.Iterator[Pair]{Iteratef: func(yield func(Pair) error) error {
+		for i, f1 := range s1 {
+			f2 := s2[i]
+			e := yield(Pair{f1, f2})
+			if e != nil {
+				return e
+			}
+		}
+		return nil
+	}}, nil
 }
 
 type IOPair[T any] struct {
