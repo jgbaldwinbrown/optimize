@@ -1,4 +1,4 @@
-module local/jgbaldwinbrown/optimize
+module github.com/jgbaldwinbrown/optimize
 
 go 1.20
 
