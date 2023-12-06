@@ -111,9 +111,23 @@ func (o *Optimizer) Guess() error {
 	return nil
 }
 
+func (o *Optimizer) updateSteps() {
+	if o.Steps == nil {
+		for i := 0; i < o.Nargs; i++ {
+			o.Steps = append(o.Steps, o.Step)
+		}
+	}
+
+	for i := 0; i < o.Nargs; i++ {
+		o.Steps[i] = (o.Steps[i] + math.Abs(o.best[i] - o.bestGuess[i])) * 0.7
+	}
+}
+
 func (o *Optimizer) UpdateBest() (continueLoop bool) {
 	oldBestScore := o.bestScore
 	if o.bestGuessScore > o.bestScore {
+		o.updateSteps()
+
 		o.bestScore = o.bestGuessScore
 		copy(o.best, o.bestGuess)
 	}
