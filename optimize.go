@@ -17,6 +17,7 @@ type OptimizerArgs struct {
 	Limits [][]float64
 	Target float64
 	Step float64
+	Steps []float64
 	Maxiter int
 	Replicates int
 }
@@ -69,11 +70,16 @@ func NewArgs(nargs int) []float64 {
 	return a
 }
 
-func makeGuess(dst []float64, src []float64, step float64, r *rand.Rand, limits [][]float64) []float64 {
+func makeGuess(dst []float64, src []float64, step float64, steps []float64, r *rand.Rand, limits [][]float64) []float64 {
 	dst = dst[:0]
 	for i, f := range src {
+		istep := step
+		if steps != nil {
+			istep = steps[i]
+		}
+
 		roll := r.Float64() - 0.5
-		guess := f + (roll * step)
+		guess := f + (roll * istep)
 
 		if guess < limits[i][0] {
 			guess = limits[i][0]
@@ -92,7 +98,7 @@ func (o *Optimizer) Handle(e error) ([]float64, int, error) {
 }
 
 func (o *Optimizer) Guess() error {
-	o.guess = makeGuess(o.guess, o.best, o.Step, o.Rand, o.Limits)
+	o.guess = makeGuess(o.guess, o.best, o.Step, o.Steps, o.Rand, o.Limits)
 	if o.guessScore, o.err = o.Func(o.guess...); o.err != nil {
 		return fmt.Errorf("Optimizer.Guess: %w", o.err)
 	}
