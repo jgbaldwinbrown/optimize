@@ -20,6 +20,7 @@ type OptimizerArgs struct {
 	Steps []float64
 	Maxiter int
 	Replicates int
+	ReplicateSets []int
 }
 
 type Optimizer struct {
@@ -40,6 +41,14 @@ func NewOptimizer(a OptimizerArgs) *Optimizer {
 	return o
 }
 
+func DefaultReplicateSets() []int {
+	out := []int{32}
+	for i := 32; i < 1000000; i *= 2 {
+		out = append(out, i)
+	}
+	return out
+}
+
 func DefaultOptimizerArgs(f Func, nargs int) OptimizerArgs {
 	o := OptimizerArgs{}
 	o.Func = f
@@ -48,7 +57,8 @@ func DefaultOptimizerArgs(f Func, nargs int) OptimizerArgs {
 	o.Target = 0.0
 	o.Step = 1.0
 	o.Maxiter = 10000
-	o.Replicates = 1000000
+	o.Replicates = 10000
+	o.ReplicateSets = DefaultReplicateSets()
 	o.Limits = NewLimits(o.Nargs)
 	o.Start = NewArgs(o.Nargs)
 	return o
@@ -143,9 +153,22 @@ func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 	o.bestGuess = append(o.bestGuess[:0], o.best...)
 	o.bestGuessScore = o.bestScore
 
-	for rep := 0; rep < o.Replicates; rep++ {
-		if e := o.Guess(); e != nil {
-			return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
+	if o.ReplicateSets == nil {
+		for rep := 0; rep < o.Replicates; rep++ {
+			if e := o.Guess(); e != nil {
+				return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
+			}
+		}
+	} else {
+		for _, reps := range o.ReplicateSets {
+			for rep := 0; rep < reps; rep++ {
+				if e := o.Guess(); e != nil {
+					return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
+				}
+			}
+			if o.bestGuessScore > o.bestScore {
+				break
+			}
 		}
 	}
 
