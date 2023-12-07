@@ -41,12 +41,16 @@ func NewOptimizer(a OptimizerArgs) *Optimizer {
 	return o
 }
 
-func DefaultReplicateSets() []int {
+func LimitedReplicateSets(max int) []int {
 	out := []int{32}
-	for i := 32; i < 1000000; i *= 2 {
+	for i := 32; i < max; i *= 2 {
 		out = append(out, i)
 	}
 	return out
+}
+
+func DefaultReplicateSets() []int {
+	return LimitedReplicateSets(10000)
 }
 
 func DefaultOptimizerArgs(f Func, nargs int) OptimizerArgs {
