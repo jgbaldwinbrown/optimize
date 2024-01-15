@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"math"
+	"log"
 )
 
 type Func func(args ...float64) (float64, error)
@@ -21,6 +22,7 @@ type OptimizerArgs struct {
 	Maxiter int
 	Replicates int
 	ReplicateSets []int
+	Verbose bool
 }
 
 type Optimizer struct {
@@ -180,6 +182,14 @@ func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 	return continueLoop, nil
 }
 
+func (o *Optimizer) LogArgsVerbose() {
+	log.Printf("Optimizer Args:\n%#v\n", o.OptimizerArgs)
+}
+
+func (o *Optimizer) LogVerbose() {
+	log.Printf("Optimizer:\n%#v\n", *o)
+}
+
 func (o *Optimizer) Optimize() ([]float64, int, error) {
 	h := func(e error) ([]float64, int, error) {
 		return o.Handle(e)
@@ -191,10 +201,17 @@ func (o *Optimizer) Optimize() ([]float64, int, error) {
 		return h(o.err)
 	}
 
+	if o.Verbose {
+		o.LogArgsVerbose()
+	}
+
 	for o.iterations = 0; o.iterations < o.Maxiter; o.iterations++ {
 		continueLoop, e := o.GuessRound()
 		if e != nil {
 			return h(e)
+		}
+		if o.Verbose {
+			o.LogVerbose()
 		}
 		if !continueLoop {
 			break

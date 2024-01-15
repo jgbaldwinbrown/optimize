@@ -11,6 +11,7 @@ func square(fs ...float64) (float64, error) {
 
 func TestSquare(t *testing.T) {
 	o := NewOptimizer(DefaultOptimizerArgs(Neg(square), 1))
+	o.Verbose = true
 	args, niter, err := o.Optimize()
 	fmt.Println(args, niter, err)
 }
