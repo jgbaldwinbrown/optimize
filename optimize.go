@@ -1,6 +1,8 @@
 package optimize
 
 import (
+	"sync"
+	"golang.org/x/sync/errgroup"
 	"time"
 	"fmt"
 	"math/rand"
@@ -91,6 +93,12 @@ func NewArgs(nargs int) []float64 {
 	return a
 }
 
+func makeGuessLocked(dst []float64, src []float64, steps []float64, r *rand.Rand, limits [][]float64, mu *sync.Mutex) []float64 {
+	mu.Lock()
+	defer mu.Unlock()
+	return makeGuess(dst, src, steps, r, limits)
+}
+
 func makeGuess(dst []float64, src []float64, steps []float64, r *rand.Rand, limits [][]float64) []float64 {
 	dst = dst[:0]
 	for i, f := range src {
@@ -115,15 +123,37 @@ func (o *Optimizer) Handle(e error) ([]float64, int, error) {
 	return o.best, o.iterations, fmt.Errorf("Optimize: guess: %v; iterations: %v; score: %v; error: %w", o.guess, o.iterations, o.guessScore, e)
 }
 
-func (o *Optimizer) Guess() error {
-	o.guess = makeGuess(o.guess, o.best, o.Steps, o.Rand, o.Limits)
-	if o.guessScore, o.err = o.Func(o.guess...); o.err != nil {
-		return fmt.Errorf("Optimizer.Guess: %w", o.err)
+type GuessSet struct {
+	Guess []float64
+	GuessScore float64
+}
+
+func (o *Optimizer) GuessN(n int) error {
+	var g errgroup.Group
+	var mu sync.Mutex
+
+	guesses := make([]GuessSet, n)
+
+	for i := 0; i < n; i++ {
+		i := i
+		g.Go(func() error {
+			guesses[i].Guess = makeGuessLocked(guesses[i].Guess, o.best, o.Steps, o.Rand, o.Limits, &mu)
+			var err error
+			if guesses[i].GuessScore, err = o.Func(guesses[i].Guess...); err != nil {
+				return fmt.Errorf("Optimizer.Guess: %w", err)
+			}
+			return nil
+		})
+	}
+	if e := g.Wait(); e != nil {
+		return e
 	}
 
-	if o.guessScore > o.bestGuessScore {
-		o.bestGuessScore = o.guessScore
-		copy(o.bestGuess, o.guess)
+	for _, guess := range guesses {
+		if guess.GuessScore > o.bestGuessScore {
+			o.bestGuessScore = guess.GuessScore
+			copy(o.bestGuess, guess.Guess)
+		}
 	}
 
 	return nil
@@ -156,10 +186,8 @@ func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 	o.bestGuessScore = o.bestScore
 
 	for _, reps := range o.ReplicateSets {
-		for rep := 0; rep < reps; rep++ {
-			if e := o.Guess(); e != nil {
+		if e := o.GuessN(reps); e != nil {
 				return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
-			}
 		}
 		if o.bestGuessScore > o.bestScore {
 			break
