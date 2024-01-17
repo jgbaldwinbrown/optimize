@@ -3,6 +3,7 @@ package optimize
 import (
 	"testing"
 	"fmt"
+	"sync"
 )
 
 func square(fs ...float64) (float64, error) {
@@ -12,7 +13,8 @@ func square(fs ...float64) (float64, error) {
 func TestSquare(t *testing.T) {
 	o := NewOptimizer(DefaultOptimizerArgs(Neg(square), 1))
 	o.Verbose = true
-	args, niter, err := o.Optimize()
+	var mu sync.Mutex
+	args, niter, err := o.Optimize(&mu)
 	fmt.Println(args, niter, err)
 }
 
@@ -24,7 +26,8 @@ func TestMult(t *testing.T) {
 	o := NewOptimizer(DefaultOptimizerArgs(mult, 1))
 	o.Limits[0][0] = 1.0
 	o.Limits[0][1] = 8.0
-	args, niter, err := o.Optimize()
+	var mu sync.Mutex
+	args, niter, err := o.Optimize(&mu)
 	fmt.Println(args, niter, err)
 }
 
@@ -34,6 +37,7 @@ func TestMultSteps(t *testing.T) {
 	o.Limits[0][0] = 1.0
 	o.Limits[0][1] = 8.0
 	o.Steps = []float64{0.5}
-	args, niter, err := o.Optimize()
+	var mu sync.Mutex
+	args, niter, err := o.Optimize(&mu)
 	fmt.Println(args, niter, err)
 }

@@ -128,16 +128,15 @@ type GuessSet struct {
 	GuessScore float64
 }
 
-func (o *Optimizer) GuessN(n int) error {
+func (o *Optimizer) GuessN(n int, mu *sync.Mutex) error {
 	var g errgroup.Group
-	var mu sync.Mutex
 
 	guesses := make([]GuessSet, n)
 
 	for i := 0; i < n; i++ {
 		i := i
 		g.Go(func() error {
-			guesses[i].Guess = makeGuessLocked(guesses[i].Guess, o.best, o.Steps, o.Rand, o.Limits, &mu)
+			guesses[i].Guess = makeGuessLocked(guesses[i].Guess, o.best, o.Steps, o.Rand, o.Limits, mu)
 			var err error
 			if guesses[i].GuessScore, err = o.Func(guesses[i].Guess...); err != nil {
 				return fmt.Errorf("Optimizer.Guess: %w", err)
@@ -181,12 +180,12 @@ func (o *Optimizer) UpdateBest() (continueLoop bool) {
 	return true
 }
 
-func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
+func (o *Optimizer) GuessRound(mu *sync.Mutex) (continueLoop bool, err error) {
 	o.bestGuess = append(o.bestGuess[:0], o.best...)
 	o.bestGuessScore = o.bestScore
 
 	for _, reps := range o.ReplicateSets {
-		if e := o.GuessN(reps); e != nil {
+		if e := o.GuessN(reps, mu); e != nil {
 				return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
 		}
 		if o.bestGuessScore > o.bestScore {
@@ -206,7 +205,7 @@ func (o *Optimizer) LogVerbose() {
 	log.Printf("Optimizer:\n%#v\n", *o)
 }
 
-func (o *Optimizer) Optimize() ([]float64, int, error) {
+func (o *Optimizer) Optimize(mu *sync.Mutex) ([]float64, int, error) {
 	h := func(e error) ([]float64, int, error) {
 		return o.Handle(e)
 	}
@@ -222,7 +221,7 @@ func (o *Optimizer) Optimize() ([]float64, int, error) {
 	}
 
 	for o.iterations = 0; o.iterations < o.Maxiter; o.iterations++ {
-		continueLoop, e := o.GuessRound()
+		continueLoop, e := o.GuessRound(mu)
 		if e != nil {
 			return h(e)
 		}
