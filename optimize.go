@@ -17,10 +17,8 @@ type OptimizerArgs struct {
 	Start []float64
 	Limits [][]float64
 	Target float64
-	Step float64
 	Steps []float64
 	Maxiter int
-	Replicates int
 	ReplicateSets []int
 	Verbose bool
 }
@@ -55,15 +53,22 @@ func DefaultReplicateSets() []int {
 	return LimitedReplicateSets(10000)
 }
 
+func Rep[T any](x T, n int) []T {
+	a := make([]T, 0, n)
+	for i := 0; i < n; i++ {
+		a = append(a, x)
+	}
+	return a
+}
+
 func DefaultOptimizerArgs(f Func, nargs int) OptimizerArgs {
 	o := OptimizerArgs{}
 	o.Func = f
 	o.Nargs = nargs
 	o.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	o.Target = 0.0
-	o.Step = 1.0
+	o.Steps = Rep(1.0, nargs)
 	o.Maxiter = 10000
-	o.Replicates = 10000
 	o.ReplicateSets = DefaultReplicateSets()
 	o.Limits = NewLimits(o.Nargs)
 	o.Start = NewArgs(o.Nargs)
@@ -86,13 +91,10 @@ func NewArgs(nargs int) []float64 {
 	return a
 }
 
-func makeGuess(dst []float64, src []float64, step float64, steps []float64, r *rand.Rand, limits [][]float64) []float64 {
+func makeGuess(dst []float64, src []float64, steps []float64, r *rand.Rand, limits [][]float64) []float64 {
 	dst = dst[:0]
 	for i, f := range src {
-		istep := step
-		if steps != nil {
-			istep = steps[i]
-		}
+		istep := steps[i]
 
 		roll := r.Float64() - 0.5
 		guess := f + (roll * istep)
@@ -114,7 +116,7 @@ func (o *Optimizer) Handle(e error) ([]float64, int, error) {
 }
 
 func (o *Optimizer) Guess() error {
-	o.guess = makeGuess(o.guess, o.best, o.Step, o.Steps, o.Rand, o.Limits)
+	o.guess = makeGuess(o.guess, o.best, o.Steps, o.Rand, o.Limits)
 	if o.guessScore, o.err = o.Func(o.guess...); o.err != nil {
 		return fmt.Errorf("Optimizer.Guess: %w", o.err)
 	}
@@ -128,12 +130,6 @@ func (o *Optimizer) Guess() error {
 }
 
 func (o *Optimizer) updateSteps() {
-	if o.Steps == nil {
-		for i := 0; i < o.Nargs; i++ {
-			o.Steps = append(o.Steps, o.Step)
-		}
-	}
-
 	for i := 0; i < o.Nargs; i++ {
 		o.Steps[i] = (o.Steps[i] + math.Abs(o.best[i] - o.bestGuess[i])) * 0.7
 	}
@@ -159,22 +155,14 @@ func (o *Optimizer) GuessRound() (continueLoop bool, err error) {
 	o.bestGuess = append(o.bestGuess[:0], o.best...)
 	o.bestGuessScore = o.bestScore
 
-	if o.ReplicateSets == nil {
-		for rep := 0; rep < o.Replicates; rep++ {
+	for _, reps := range o.ReplicateSets {
+		for rep := 0; rep < reps; rep++ {
 			if e := o.Guess(); e != nil {
 				return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
 			}
 		}
-	} else {
-		for _, reps := range o.ReplicateSets {
-			for rep := 0; rep < reps; rep++ {
-				if e := o.Guess(); e != nil {
-					return false, fmt.Errorf("Optimizer.GuessRound: %w", e)
-				}
-			}
-			if o.bestGuessScore > o.bestScore {
-				break
-			}
+		if o.bestGuessScore > o.bestScore {
+			break
 		}
 	}
 
